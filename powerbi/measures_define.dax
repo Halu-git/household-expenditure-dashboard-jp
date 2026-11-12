@@ -1,0 +1,114 @@
+// =====================================================================
+// DAXクエリビュー一括投入用(DEFINE形式) — 日本の家計支出ダッシュボード
+// measures_build.dax(元列名版・全22メジャー)を DEFINE MEASURE 形式に
+// 変換したもの。DAXクエリビューに全文を貼り、
+// 「Update model with changes」を押すとモデルへ一括反映される。
+// 末尾の EVALUATE は動作確認用: Run で 314001 が出れば式は通っている。
+// =====================================================================
+
+DEFINE
+    // ---- 用途分類(FactUseAnnual) ----
+    MEASURE FactUseAnnual[支出金額_用途] =
+        SUM ( FactUseAnnual[value] )
+    MEASURE FactUseAnnual[消費支出_用途] =
+        CALCULATE (
+            [支出金額_用途],
+            DimItemUse[item_name] = "消費支出"
+        )
+    MEASURE FactUseAnnual[構成比_用途] =
+        DIVIDE ( [支出金額_用途], [消費支出_用途] )
+    MEASURE FactUseAnnual[前年金額_用途] =
+        CALCULATE (
+            [支出金額_用途],
+            FILTER ( ALL ( DimYear ), DimYear[year] = MAX ( DimYear[year] ) - 1 )
+        )
+    MEASURE FactUseAnnual[前年比_用途] =
+        DIVIDE ( [支出金額_用途] - [前年金額_用途], [前年金額_用途] )
+    MEASURE FactUseAnnual[エンゲル係数] =
+        CALCULATE (
+            AVERAGE ( FactUseAnnual[value] ),
+            DimItemUse[item_name] = "エンゲル係数(％)"
+        )
+    // ---- 品目分類(FactItemAnnual / FactItemMonthly) ----
+    MEASURE FactItemAnnual[支出金額_品目_年次] =
+        SUM ( FactItemAnnual[amount_yen_per_month_calc] )
+    MEASURE FactItemMonthly[支出金額_品目_月次] =
+        SUM ( FactItemMonthly[amount_yen_per_month] )
+    MEASURE FactItemAnnual[指数2015_品目] =
+        VAR Base =
+            CALCULATE (
+                [支出金額_品目_年次],
+                FILTER ( ALL ( DimYear ), DimYear[year] = 2015 )
+            )
+        RETURN
+            DIVIDE ( [支出金額_品目_年次], Base ) * 100
+    MEASURE FactItemMonthly[前年同月金額_品目] =
+        CALCULATE (
+            [支出金額_品目_月次],
+            FILTER (
+                ALL ( DimDate ),
+                DimDate[year] = MAX ( DimDate[year] ) - 1
+                    && DimDate[month] = MAX ( DimDate[month] )
+            )
+        )
+    MEASURE FactItemMonthly[前年同月比_品目] =
+        DIVIDE ( [支出金額_品目_月次] - [前年同月金額_品目], [前年同月金額_品目] )
+    // ---- 地域(FactRegion) ----
+    MEASURE FactRegion[支出金額_地域] =
+        SUM ( FactRegion[amount_yen_per_month] )
+    MEASURE FactRegion[消費支出_地域] =
+        CALCULATE (
+            [支出金額_地域],
+            FactRegion[item_name] = "消費支出"
+        )
+    MEASURE FactRegion[全国比_地域] =
+        VAR National =
+            CALCULATE (
+                [支出金額_地域],
+                FILTER ( ALL ( DimRegion ), DimRegion[region] = "全国" )
+            )
+        RETURN
+            DIVIDE ( [支出金額_地域], National ) * 100
+    // ---- 年代(FactAge) ----
+    MEASURE FactAge[支出金額_年代] =
+        SUM ( FactAge[amount_yen_per_month] )
+    MEASURE FactAge[消費支出_年代] =
+        CALCULATE (
+            [支出金額_年代],
+            FactAge[item_name] = "消費支出"
+        )
+    MEASURE FactAge[構成比_年代] =
+        DIVIDE ( [支出金額_年代], [消費支出_年代] )
+    // ---- 基礎的/選択的支出(FactBasicSelective) ----
+    MEASURE FactBasicSelective[基礎的支出] =
+        SUM ( FactBasicSelective[basic_yen_per_month] )
+    MEASURE FactBasicSelective[選択的支出] =
+        SUM ( FactBasicSelective[selective_yen_per_month] )
+    MEASURE FactBasicSelective[基礎的支出比率] =
+        DIVIDE ( [基礎的支出], [基礎的支出] + [選択的支出] ) * 100
+    // ---- 世帯属性(DimAttributes) ----
+    MEASURE DimAttributes[世帯人員] =
+        VAR LatestYear =
+            MAX ( DimAttributes[year] )
+        RETURN
+            CALCULATE (
+                AVERAGE ( DimAttributes[value] ),
+                DimAttributes[dimension] = "地域",
+                DimAttributes[group_name] = "全国",
+                DimAttributes[attribute] = "世帯人員(人)",
+                DimAttributes[year] = LatestYear
+            )
+    MEASURE DimAttributes[世帯主の平均年齢] =
+        VAR LatestYear =
+            MAX ( DimAttributes[year] )
+        RETURN
+            CALCULATE (
+                AVERAGE ( DimAttributes[value] ),
+                DimAttributes[dimension] = "地域",
+                DimAttributes[group_name] = "全国",
+                DimAttributes[attribute] = "世帯主の年齢(歳)",
+                DimAttributes[year] = LatestYear
+            )
+
+EVALUATE
+ROW ( "消費支出_用途_2025", CALCULATE ( [消費支出_用途], DimYear[year] = 2025 ) )

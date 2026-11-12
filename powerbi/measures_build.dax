@@ -1,0 +1,153 @@
+// =====================================================================
+// DAXメジャー集(PBIX組み立て用・元列名版) — 日本の家計支出ダッシュボード
+// 設計書の正規版は measures.dax(正規化した列名前提)。本ファイルは
+// CSVの元列名のまま組むための実測版で、意味は正規版と同一。
+// 対応表は BUILD_NOTES.md を参照。
+// 方針: メジャーブランチング/分類をまたがない/エンゲル係数は公表値/
+// 系列断絶のある基礎的・選択的に増減メジャーを作らない/前年比は年・月の算術。
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// 用途分類(FactUseAnnual)— 金額列は value
+// ---------------------------------------------------------------------
+
+支出金額_用途 =
+SUM ( FactUseAnnual[value] )
+
+消費支出_用途 =
+CALCULATE (
+    [支出金額_用途],
+    DimItemUse[item_name] = "消費支出"
+)
+
+構成比_用途 =
+DIVIDE ( [支出金額_用途], [消費支出_用途] )
+
+前年金額_用途 =
+CALCULATE (
+    [支出金額_用途],
+    FILTER ( ALL ( DimYear ), DimYear[year] = MAX ( DimYear[year] ) - 1 )
+)
+
+前年比_用途 =
+DIVIDE ( [支出金額_用途] - [前年金額_用途], [前年金額_用途] )
+
+// エンゲル係数は公表値をそのまま AVERAGE で拾う(再計算しない)
+エンゲル係数 =
+CALCULATE (
+    AVERAGE ( FactUseAnnual[value] ),
+    DimItemUse[item_name] = "エンゲル係数(％)"
+)
+
+// ---------------------------------------------------------------------
+// 品目分類(FactItemAnnual / FactItemMonthly)
+// ---------------------------------------------------------------------
+
+支出金額_品目_年次 =
+SUM ( FactItemAnnual[amount_yen_per_month_calc] )
+
+支出金額_品目_月次 =
+SUM ( FactItemMonthly[amount_yen_per_month] )
+
+指数2015_品目 =
+VAR Base =
+    CALCULATE (
+        [支出金額_品目_年次],
+        FILTER ( ALL ( DimYear ), DimYear[year] = 2015 )
+    )
+RETURN
+    DIVIDE ( [支出金額_品目_年次], Base ) * 100
+
+// 前年同月: 年と月の算術で12か月前を引く(year_month は "YYYY-MM" 文字列キーのため)
+前年同月金額_品目 =
+CALCULATE (
+    [支出金額_品目_月次],
+    FILTER (
+        ALL ( DimDate ),
+        DimDate[year] = MAX ( DimDate[year] ) - 1
+            && DimDate[month] = MAX ( DimDate[month] )
+    )
+)
+
+前年同月比_品目 =
+DIVIDE ( [支出金額_品目_月次] - [前年同月金額_品目], [前年同月金額_品目] )
+
+// ---------------------------------------------------------------------
+// 地域(FactRegion)/ 年代(FactAge)— 年はページフィルターで切替
+// ---------------------------------------------------------------------
+
+支出金額_地域 =
+SUM ( FactRegion[amount_yen_per_month] )
+
+消費支出_地域 =
+CALCULATE (
+    [支出金額_地域],
+    FactRegion[item_name] = "消費支出"
+)
+
+全国比_地域 =
+VAR National =
+    CALCULATE (
+        [支出金額_地域],
+        FILTER ( ALL ( DimRegion ), DimRegion[region] = "全国" )
+    )
+RETURN
+    DIVIDE ( [支出金額_地域], National ) * 100
+
+支出金額_年代 =
+SUM ( FactAge[amount_yen_per_month] )
+
+消費支出_年代 =
+CALCULATE (
+    [支出金額_年代],
+    FactAge[item_name] = "消費支出"
+)
+
+構成比_年代 =
+DIVIDE ( [支出金額_年代], [消費支出_年代] )
+
+// 注: 年代ページの棒グラフでは age_group = "平均" をページフィルターで除外する
+
+// ---------------------------------------------------------------------
+// 基礎的/選択的支出(FactBasicSelective)
+// 改定年に2系列が重なるため、描画時は classification_series で1系列に絞る。
+// 系列をまたぐ増減メジャーは意図的に作らない。
+// ---------------------------------------------------------------------
+
+基礎的支出 =
+SUM ( FactBasicSelective[basic_yen_per_month] )
+
+選択的支出 =
+SUM ( FactBasicSelective[selective_yen_per_month] )
+
+基礎的支出比率 =
+DIVIDE ( [基礎的支出], [基礎的支出] + [選択的支出] ) * 100
+
+// ---------------------------------------------------------------------
+// 世帯属性(DimAttributes)— KPIカード用。リレーションは張らず、
+// メジャー内で最新年・全国・地域ディメンションに絞って参照する。
+// ---------------------------------------------------------------------
+
+世帯人員 =
+VAR LatestYear =
+    MAX ( DimAttributes[year] )
+RETURN
+    CALCULATE (
+        AVERAGE ( DimAttributes[value] ),
+        DimAttributes[dimension] = "地域",
+        DimAttributes[group_name] = "全国",
+        DimAttributes[attribute] = "世帯人員(人)",
+        DimAttributes[year] = LatestYear
+    )
+
+世帯主の平均年齢 =
+VAR LatestYear =
+    MAX ( DimAttributes[year] )
+RETURN
+    CALCULATE (
+        AVERAGE ( DimAttributes[value] ),
+        DimAttributes[dimension] = "地域",
+        DimAttributes[group_name] = "全国",
+        DimAttributes[attribute] = "世帯主の年齢(歳)",
+        DimAttributes[year] = LatestYear
+    )
