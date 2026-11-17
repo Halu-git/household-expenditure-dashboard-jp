@@ -1,7 +1,9 @@
 # 日本の家計支出ダッシュボード — 家計調査(二人以上の世帯)
 
 総務省統計局「家計調査(家計収支編)」の公開データだけで、「家計の財布は今どこに向かっているか」を読むダッシュボードを作ったサンプルプロジェクトです。
-同じ整形済みソースデータから、**Excel完成品**と**Power BI設計パック**の2つの見せ方を用意しています。
+同じ整形済みソースデータから、**Excel完成品**と**Power BI（設計パック＋Desktop実装）**の2つの見せ方を用意しています。
+
+解説記事（Zenn）：[「食料」の金額が2つある — 家計調査でダッシュボードを作ったら、分類の罠と数字の突合せが主役だった](https://zenn.dev/halu_git/articles/5ea861204e5c09)
 
 ## 主なファクト(検証済み)
 
@@ -16,8 +18,29 @@
 - `powerbi/model.md`:データモデル定義(スター・スキーマ、テーブル・リレーション・取り込み手順)
 - `powerbi/measures.dax`:DAXメジャー一式(メジャーブランチング方針)
 - `powerbi/pages.md`:ページ配置仕様と公開前チェックリスト
+- `powerbi/images/`:Power BI Desktop 実装版のページスクリーンショット(4点、下記)
 - `data/processed/`:整形済みCSV 7点(tidy形式)
 - `design.md`:設計書(データ基盤・検証結果・指標定義・注意点)
+
+## Power BI 実装(Power BI Desktop で構築・全4ページ)
+
+設計パック(model.md / measures.dax / pages.md)どおりに Power BI Desktop で実装した完成版のスクリーンショットです。.pbix ファイル自体はリポジトリに含めていません(ご希望があれば提供します)。
+
+### ページ1:KPI概要
+
+![ページ1 KPI概要](powerbi/images/page1_kpi_overview.png)
+
+### ページ2:品目別推移
+
+![ページ2 品目別推移](powerbi/images/page2_item_trends.png)
+
+### ページ3:地域比較
+
+![ページ3 地域比較](powerbi/images/page3_region_comparison.png)
+
+### ページ4:世帯主年代別
+
+![ページ4 世帯主年代別](powerbi/images/page4_age_breakdown.png)
 
 ## 使い方(再現手順)
 
@@ -51,4 +74,4 @@
 
 ## Summary (English)
 
-A household-expenditure dashboard built solely from Japan's official Family Income and Expenditure Survey (Statistics Bureau, MIC; two-or-more-person households), downloaded from e-Stat without an API key. Deliverables: a finished Excel dashboard (4 dashboard sheets with native charts), a Power BI design pack (star-schema model definition, DAX measures, page specs), and tidy CSVs with reproducible build scripts. Key verified facts: monthly consumption expenditure per household was JPY 287,373 (2015), 277,926 (2020) and 314,001 (2025) — cross-checked across four independent published tables; the Engel coefficient rose from 25.0% to 28.6%. Caution: the survey's two classification systems (by item / by purpose) are not interchangeable — category totals differ even though overall consumption matches.
+A household-expenditure dashboard built solely from Japan's official Family Income and Expenditure Survey (Statistics Bureau, MIC; two-or-more-person households), downloaded from e-Stat without an API key. Deliverables: a finished Excel dashboard (4 dashboard sheets with native charts), a Power BI design pack (star-schema model definition, DAX measures, page specs), and tidy CSVs with reproducible build scripts. Key verified facts: monthly consumption expenditure per household was JPY 287,373 (2015), 277,926 (2020) and 314,001 (2025) — cross-checked across four independent published tables; the Engel coefficient rose from 25.0% to 28.6%. Caution: the survey's two classification systems (by item / by purpose) are not interchangeable — category totals differ even though overall consumption matches. The Power BI design pack has also been fully implemented in Power BI Desktop (four pages; screenshots in the Power BI section above). The .pbix file is not included in this repository and is available on request.
